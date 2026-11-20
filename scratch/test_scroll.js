@@ -1,6 +1,9 @@
 const puppeteer = require('puppeteer-core');
 
-const CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const CHROME_PATH = process.env.PUPPETEER_EXECUTABLE_PATH 
+  || (process.platform === 'darwin' 
+      ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' 
+      : '/usr/bin/google-chrome-stable' || '/usr/bin/chromium-browser');
 
 async function testScrollMaps() {
   const browser = await puppeteer.launch({

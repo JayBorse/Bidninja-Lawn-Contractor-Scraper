@@ -1,17 +1,23 @@
-# BidNinja Lawn contractor Scraper
+# BidNinja Lawn Contractor Scraper
 
----
+## How to Run
 
-## 🚀 Quick Start
+### 1. Prerequisites
+- Node.js (v18+)
+- Google Chrome or Chromium browser installed
 
-The platform is running locally on:
-**[http://localhost:3000](http://localhost:3000)**
-
-To run it anytime manually:
+### 2. Install Dependencies
 ```bash
-npm start
-# or
-node src/server.js
+npm install
 ```
 
----
+### 3. Start the Server
+```bash
+npm start
+```
+
+### 4. Access the Application
+Open your browser and navigate to:
+```
+http://localhost:3000
+```
