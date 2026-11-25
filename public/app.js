@@ -377,6 +377,59 @@ async function searchContractors(city, forceRefresh = false) {
   }
 
   city = city.trim();
+// --- Client-Side Robust Deduplication ---
+function deduplicateContractors(list) {
+  if (!Array.isArray(list)) return [];
+  const result = [];
+  const seenPhone = new Set();
+  const seenDomain = new Set();
+  const seenName = new Set();
+  const seenLink = new Set();
+
+  for (const c of list) {
+    if (!c || !c.name) continue;
+
+    const normName = (c.name || '').toLowerCase()
+      .replace(/\b(llc|inc|corp|co|ltd|services|service|lawn care|landscaping)\b/gi, '')
+      .replace(/[^a-z0-9]/g, '')
+      .trim();
+
+    const phoneDigits = (c.phone || '').replace(/\D/g, '');
+    const validPhone = (!c.phone || c.phone.toLowerCase().includes('request') || phoneDigits.length < 10)
+      ? ''
+      : phoneDigits.slice(-10);
+
+    let domain = '';
+    if (c.website) {
+      try {
+        const u = new URL(c.website.startsWith('http') ? c.website : 'http://' + c.website);
+        const host = u.hostname.replace(/^www\./, '').toLowerCase();
+        if (!['facebook.com', 'instagram.com', 'yelp.com', 'google.com'].includes(host)) {
+          domain = host;
+        }
+      } catch (e) {}
+    }
+
+    const mapsLink = (c.mapsLink || '').trim();
+
+    let isDupe = false;
+    if (mapsLink && seenLink.has(mapsLink)) isDupe = true;
+    else if (validPhone && seenPhone.has(validPhone)) isDupe = true;
+    else if (domain && seenDomain.has(domain)) isDupe = true;
+    else if (normName && seenName.has(normName)) isDupe = true;
+
+    if (isDupe) continue;
+
+    if (mapsLink) seenLink.add(mapsLink);
+    if (validPhone) seenPhone.add(validPhone);
+    if (domain) seenDomain.add(domain);
+    if (normName) seenName.add(normName);
+    result.push(c);
+  }
+
+  return result;
+}
+
   currentCityLabel.innerText = city;
 
   // Reveal UI sections
@@ -388,7 +441,7 @@ async function searchContractors(city, forceRefresh = false) {
     const cached = getClientCache(city);
     if (cached && Array.isArray(cached.contractors) && cached.contractors.length > 0) {
       console.log(`[Browser Cache Hit] Loaded ${cached.contractors.length} contractors for "${city}"`);
-      currentContractors = cached.contractors;
+      currentContractors = deduplicateContractors(cached.contractors);
       if (cacheIndicatorBadge) cacheIndicatorBadge.classList.remove('hidden');
       renderContractors(city);
       return;
@@ -413,8 +466,8 @@ async function searchContractors(city, forceRefresh = false) {
     }
 
     if (data.success && data.contractors) {
-      currentContractors = data.contractors;
-      setClientCache(city, data);
+      currentContractors = deduplicateContractors(data.contractors);
+      setClientCache(city, { ...data, contractors: currentContractors, count: currentContractors.length });
       renderContractors(city);
     } else {
       currentContractors = [];
@@ -431,6 +484,8 @@ async function searchContractors(city, forceRefresh = false) {
 
 // --- Render Contractors Table Rows with Sorting & Exact Filter ---
 function renderContractors(city) {
+  // Always filter and display clean deduplicated listings
+  currentContractors = deduplicateContractors(currentContractors);
   const totalCount = currentContractors.length;
   const exactCount = currentContractors.filter(c => c.isExactCity).length;
 
@@ -647,7 +702,7 @@ function copyToClipboard(text, buttonElement) {
 
 // --- Export to Excel (.xlsx) Feature ---
 function exportToExcel() {
-  let list = [...currentContractors];
+  let list = deduplicateContractors([...currentContractors]);
   if (locationFilter === 'exact') {
     list = list.filter(c => c.isExactCity);
   }

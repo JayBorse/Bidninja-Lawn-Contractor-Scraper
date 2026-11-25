@@ -26,22 +26,13 @@ app.get('/api/search', async (req, res) => {
     }
 
     const forceRefresh = req.query.refresh === 'true';
-    const cityLower = city.toLowerCase();
 
-    // 1. Check local database cache for this city
-    let existing = db.getLeads().filter(l => {
-      const lCity = (l.city || '').toLowerCase();
-      const lAddr = (l.address || '').toLowerCase();
-      return (
-        lCity.includes(cityLower) ||
-        cityLower.includes(lCity.split(',')[0].trim().toLowerCase()) ||
-        lAddr.includes(cityLower)
-      );
-    });
+    // 1. Check local database cache for this city (strictly deduplicated)
+    let existing = db.getLeadsForCity(city);
 
     // 2. CACHE HIT: If we have cached leads and forceRefresh is NOT requested
     if (!forceRefresh && existing.length > 0) {
-      console.log(`[Cache Hit] Serving ${existing.length} leads for "${city}".`);
+      console.log(`[Cache Hit] Serving ${existing.length} deduplicated leads for "${city}".`);
       return res.json({
         success: true,
         city,
@@ -64,8 +55,10 @@ app.get('/api/search', async (req, res) => {
 
     if (taggedScraped.length > 0) {
       db.upsertLeads(taggedScraped);
-      existing = taggedScraped;
     }
+
+    // Return clean, deduplicated listings for the requested city
+    existing = db.getLeadsForCity(city);
 
     res.json({
       success: true,

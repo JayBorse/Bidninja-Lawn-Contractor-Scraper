@@ -67,6 +67,7 @@ async function scrapeGoogleMaps(city = 'Dallas, TX', scrollCount = 7) {
     // Extract all contractor cards
     const rawListings = await page.evaluate(() => {
       const results = [];
+      const seen = new Set();
       const cards = document.querySelectorAll('div.Nv2PK');
 
       cards.forEach(card => {
@@ -93,10 +94,21 @@ async function scrapeGoogleMaps(city = 'Dallas, TX', scrollCount = 7) {
         let address = '';
         for (const l of lines) {
           if (l.includes('·') && !l.includes('Open') && !l.includes('Closed')) {
-            address = l.replace(/Lawn care service|Landscaper|Tree service/gi, '').replace(/[·\n]/g, ' ').trim();
+            address = l.replace(/Lawn care service|Landscaper|Tree service/gi, '')
+                       .replace(/[\uE000-\uF8FF]/g, '')
+                       .replace(/[·\n]/g, ' ')
+                       .replace(/\s+/g, ' ')
+                       .trim();
             break;
           }
         }
+
+        // In-feed deduplication by Place Link or clean Name + Phone
+        const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const phoneDigits = phone.replace(/\D/g, '');
+        const dedupeKey = link || (phoneDigits.length >= 10 ? phoneDigits : cleanName);
+        if (seen.has(dedupeKey)) return;
+        seen.add(dedupeKey);
 
         results.push({
           name,
@@ -115,9 +127,9 @@ async function scrapeGoogleMaps(city = 'Dallas, TX', scrollCount = 7) {
     console.log(`[Puppeteer] Scraped ${rawListings.length} raw listings from Google Maps for ${city}.`);
 
     // Clean, format, and assign IDs
-    const contractors = rawListings.map((c, idx) => {
+    const rawContractors = rawListings.map((c, idx) => {
       const fran = isFranchise(c.name);
-      const rawAddr = c.address ? c.address.replace(/[·\n]/g, ' ').replace(/\s+/g, ' ').trim() : '';
+      const rawAddr = c.address ? c.address.replace(/[\uE000-\uF8FF]/g, '').replace(/[·\n]/g, ' ').replace(/\s+/g, ' ').trim() : '';
       const hasStreet = /\d+\s+[A-Za-z]+/.test(rawAddr);
       const isExactCity = hasStreet;
 
@@ -149,6 +161,24 @@ async function scrapeGoogleMaps(city = 'Dallas, TX', scrollCount = 7) {
         scrapedAt: new Date().toISOString()
       };
     });
+
+    // Secondary post-processing deduplication pass
+    const contractors = [];
+    const seenNames = new Set();
+    const seenPhones = new Set();
+
+    for (const item of rawContractors) {
+      const normName = item.name.toLowerCase().replace(/\b(llc|inc|corp|co|ltd|services|service)\b/gi, '').replace(/[^a-z0-9]/g, '');
+      const phoneDigits = item.phone.replace(/\D/g, '');
+      const validPhone = phoneDigits.length >= 10 ? phoneDigits.slice(-10) : '';
+
+      if (validPhone && seenPhones.has(validPhone)) continue;
+      if (normName && seenNames.has(normName)) continue;
+
+      if (validPhone) seenPhones.add(validPhone);
+      if (normName) seenNames.add(normName);
+      contractors.push(item);
+    }
 
     return contractors;
   } catch (err) {
