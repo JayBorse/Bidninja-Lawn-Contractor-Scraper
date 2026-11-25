@@ -63,6 +63,27 @@ const detailSource = document.getElementById('detailSource');
 
 const btnCopyPhone = document.getElementById('btnCopyPhone');
 
+// Enrichment Modal Elements
+const btnEnrichLead = document.getElementById('btnEnrichLead');
+const enrichBtnIcon = document.getElementById('enrichBtnIcon');
+const enrichBtnText = document.getElementById('enrichBtnText');
+const enrichSection = document.getElementById('enrichSection');
+const enrichLoading = document.getElementById('enrichLoading');
+const enrichError = document.getElementById('enrichError');
+const enrichResult = document.getElementById('enrichResult');
+const enrichMeta = document.getElementById('enrichMeta');
+const enrichOwner = document.getElementById('enrichOwner');
+const enrichExperience = document.getElementById('enrichExperience');
+const enrichEmails = document.getElementById('enrichEmails');
+const btnCopyEmail = document.getElementById('btnCopyEmail');
+const enrichCrewBox = document.getElementById('enrichCrewBox');
+const enrichCrewSignals = document.getElementById('enrichCrewSignals');
+const enrichHook = document.getElementById('enrichHook');
+const btnCopyHook = document.getElementById('btnCopyHook');
+const enrichSummaryBox = document.getElementById('enrichSummaryBox');
+const enrichSummary = document.getElementById('enrichSummary');
+const enrichSocials = document.getElementById('enrichSocials');
+
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
   setupEvents();
@@ -164,6 +185,27 @@ function setupEvents() {
     const text = detailPhone.innerText.trim();
     if (text) copyToClipboard(text, btnCopyPhone);
   });
+
+  // On-demand Website Intel Scout button
+  if (btnEnrichLead) {
+    btnEnrichLead.addEventListener('click', () => {
+      enrichSelectedContractor();
+    });
+  }
+
+  if (btnCopyEmail) {
+    btnCopyEmail.addEventListener('click', () => {
+      const emailText = enrichEmails.dataset.primaryEmail || '';
+      if (emailText) copyToClipboard(emailText, btnCopyEmail);
+    });
+  }
+
+  if (btnCopyHook) {
+    btnCopyHook.addEventListener('click', () => {
+      const hookText = enrichHook.innerText.trim();
+      if (hookText) copyToClipboard(hookText, btnCopyHook);
+    });
+  }
 }
 
 // --- Location Filter Setup (All vs Exact City) ---
@@ -600,12 +642,35 @@ function renderContractors(city) {
 
         <!-- Action -->
         <td class="py-3 px-4 text-right whitespace-nowrap">
-          <button 
-            type="button" 
-            class="px-2.5 py-1 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded transition-colors"
-          >
-            Details →
-          </button>
+          <div class="inline-flex items-center justify-end gap-1.5">
+            ${c.website ? (
+              c.enrichment ? `
+                <button
+                  type="button"
+                  onclick="event.stopPropagation(); openContractorModalDirect('${c.id || index}')"
+                  title="Website intel cached — click to view"
+                  class="px-2 py-1 text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 rounded hover:bg-emerald-100 transition-colors"
+                >
+                  ✓ Intel
+                </button>
+              ` : `
+                <button
+                  type="button"
+                  onclick="event.stopPropagation(); scoutContractorFromRow('${c.id || index}')"
+                  title="Visit website to extract email, owner & crew info"
+                  class="px-2 py-1 text-[11px] font-medium bg-zinc-900 hover:bg-zinc-700 text-white rounded transition-colors"
+                >
+                  ⚡ Scout
+                </button>
+              `
+            ) : ''}
+            <button 
+              type="button" 
+              class="px-2.5 py-1 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded transition-colors"
+            >
+              Details →
+            </button>
+          </div>
         </td>
       </tr>
     `;
@@ -616,6 +681,15 @@ function renderContractors(city) {
 window.openContractorModalDirect = function(id) {
   const contractor = currentContractors.find((c, idx) => c.id === id || String(idx) === String(id));
   if (contractor) openContractorModal(contractor);
+};
+
+// Trigger website scout directly from table row
+window.scoutContractorFromRow = function(id) {
+  const contractor = currentContractors.find((c, idx) => c.id === id || String(idx) === String(id));
+  if (contractor) {
+    openContractorModal(contractor);
+    enrichSelectedContractor();
+  }
 };
 
 // --- Contractor Details Modal Logic ---
@@ -631,14 +705,17 @@ function openContractorModal(c) {
   detailTag.innerText = c.isFranchise ? 'National Franchise' : 'Independent Contractor';
   detailPhone.innerText = c.phone || 'No phone listed';
   
-  if (c.website && c.website !== '#') {
+  const hasWebsite = Boolean(c.website && c.website !== '#' && c.website.startsWith('http'));
+  if (hasWebsite) {
     detailWebsite.href = c.website;
     detailWebsite.innerText = c.website;
     detailWebsite.classList.remove('text-zinc-400', 'pointer-events-none');
+    if (btnEnrichLead) btnEnrichLead.disabled = false;
   } else {
     detailWebsite.href = '#';
     detailWebsite.innerText = 'No website listed';
     detailWebsite.classList.add('text-zinc-400', 'pointer-events-none');
+    if (btnEnrichLead) btnEnrichLead.disabled = true;
   }
 
   detailAddress.innerText = c.address || c.city || 'Address unavailable';
@@ -651,14 +728,166 @@ function openContractorModal(c) {
     detailSource.innerText = 'Google Maps (Puppeteer Scraper)';
   }
 
-  const services = c.services || ['Lawn Mowing', 'Yard Cleanups', 'Edging'];
-  detailServices.innerHTML = services.map(s => `
+  const baseServices = Array.isArray(c.services) ? c.services : ['Lawn Mowing', 'Yard Cleanups', 'Edging'];
+  const extraServices = (c.enrichment && Array.isArray(c.enrichment.services)) ? c.enrichment.services : [];
+  const mergedServices = Array.from(new Set([...baseServices, ...extraServices]));
+
+  detailServices.innerHTML = mergedServices.map(s => `
     <span class="px-2 py-0.5 rounded bg-white border border-zinc-200 text-zinc-700 text-[11px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
       ${escapeHtml(s)}
     </span>
   `).join('');
 
+  // Render cached enrichment if present, otherwise reset panel
+  resetEnrichUI(hasWebsite);
+  if (c.enrichment) {
+    renderEnrichmentResult(c.enrichment);
+  }
+
   infoModal.classList.remove('hidden');
+}
+
+function resetEnrichUI(hasWebsite) {
+  if (!enrichSection) return;
+  enrichSection.classList.add('hidden');
+  enrichLoading.classList.add('hidden');
+  enrichError.classList.add('hidden');
+  enrichResult.classList.add('hidden');
+  if (enrichBtnIcon) enrichBtnIcon.innerText = '⚡';
+  if (enrichBtnText) enrichBtnText.innerText = hasWebsite ? 'Scout Website Intel' : 'No Website';
+}
+
+function renderEnrichmentResult(intel) {
+  if (!intel || !enrichSection) return;
+  enrichSection.classList.remove('hidden');
+  enrichLoading.classList.add('hidden');
+  enrichError.classList.add('hidden');
+  enrichResult.classList.remove('hidden');
+
+  if (enrichBtnIcon) enrichBtnIcon.innerText = '↻';
+  if (enrichBtnText) enrichBtnText.innerText = 'Refresh Intel';
+
+  const pagesCount = Array.isArray(intel.pagesScanned) ? intel.pagesScanned.length : 1;
+  enrichMeta.innerText = `${pagesCount} page${pagesCount === 1 ? '' : 's'} scanned`;
+
+  enrichOwner.innerText = intel.ownerName || 'Not listed on site';
+  enrichExperience.innerText = intel.experience || 'Not specified';
+
+  const emails = Array.isArray(intel.emails) ? intel.emails : [];
+  if (emails.length > 0) {
+    enrichEmails.innerText = emails.join(', ');
+    enrichEmails.dataset.primaryEmail = emails[0];
+    btnCopyEmail.classList.remove('hidden');
+  } else {
+    enrichEmails.innerText = 'No public email found (uses contact form)';
+    enrichEmails.dataset.primaryEmail = '';
+    btnCopyEmail.classList.add('hidden');
+  }
+
+  const crewSignals = Array.isArray(intel.crewSignals) ? intel.crewSignals : [];
+  if (crewSignals.length > 0) {
+    enrichCrewBox.classList.remove('hidden');
+    enrichCrewSignals.innerHTML = crewSignals.map(sig => `
+      <span class="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-medium">
+        ${escapeHtml(sig)}
+      </span>
+    `).join('');
+  } else {
+    enrichCrewBox.classList.add('hidden');
+  }
+
+  enrichHook.innerText = intel.preCallHook || '';
+
+  if (intel.summary) {
+    enrichSummaryBox.classList.remove('hidden');
+    enrichSummary.innerText = intel.summary;
+  } else {
+    enrichSummaryBox.classList.add('hidden');
+  }
+
+  const socials = intel.socials || {};
+  const socialLinks = Object.entries(socials).filter(([, url]) => Boolean(url));
+  if (socialLinks.length > 0) {
+    enrichSocials.classList.remove('hidden');
+    enrichSocials.innerHTML = socialLinks.map(([platform, url]) => `
+      <a href="${escapeHtml(url)}" target="_blank" class="px-2 py-0.5 rounded bg-white border border-zinc-200 text-zinc-700 hover:text-zinc-950 hover:border-zinc-300 text-[11px] font-medium capitalize transition-colors">
+        ${escapeHtml(platform)} ↗
+      </a>
+    `).join('');
+  } else {
+    enrichSocials.classList.add('hidden');
+  }
+}
+
+async function enrichSelectedContractor() {
+  if (!selectedContractor || !selectedContractor.website) return;
+
+  const target = selectedContractor;
+  btnEnrichLead.disabled = true;
+  if (enrichBtnIcon) enrichBtnIcon.innerText = '⏳';
+  if (enrichBtnText) enrichBtnText.innerText = 'Scouting...';
+
+  enrichSection.classList.remove('hidden');
+  enrichLoading.classList.remove('hidden');
+  enrichError.classList.add('hidden');
+  enrichResult.classList.add('hidden');
+
+  try {
+    const res = await fetch('/api/enrich', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: target.id,
+        website: target.website,
+        name: target.name,
+        city: target.city
+      })
+    });
+    const data = await res.json();
+
+    enrichLoading.classList.add('hidden');
+
+    if (data.success && data.enrichment) {
+      target.enrichment = data.enrichment;
+      if (data.enrichment.emails && data.enrichment.emails.length > 0) {
+        target.email = data.enrichment.emails[0];
+      }
+      if (data.enrichment.ownerName) {
+        target.ownerName = data.enrichment.ownerName;
+      }
+      if (data.enrichment.services && data.enrichment.services.length > 0) {
+        const base = Array.isArray(target.services) ? target.services : [];
+        target.services = Array.from(new Set([...base, ...data.enrichment.services]));
+        detailServices.innerHTML = target.services.map(s => `
+          <span class="px-2 py-0.5 rounded bg-white border border-zinc-200 text-zinc-700 text-[11px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+            ${escapeHtml(s)}
+          </span>
+        `).join('');
+      }
+
+      // Update browser session cache and table badge
+      const city = currentCityLabel.innerText.trim();
+      if (city && city !== '—') {
+        setClientCache(city, { success: true, city, contractors: currentContractors, count: currentContractors.length, fromCache: true });
+        renderContractors(city);
+      }
+
+      renderEnrichmentResult(data.enrichment);
+    } else {
+      enrichError.innerText = data.error || 'Could not extract details from this website.';
+      enrichError.classList.remove('hidden');
+      if (enrichBtnIcon) enrichBtnIcon.innerText = '⚡';
+      if (enrichBtnText) enrichBtnText.innerText = 'Retry Scout';
+    }
+  } catch (err) {
+    enrichLoading.classList.add('hidden');
+    enrichError.innerText = 'Network error while scouting website.';
+    enrichError.classList.remove('hidden');
+    if (enrichBtnIcon) enrichBtnIcon.innerText = '⚡';
+    if (enrichBtnText) enrichBtnText.innerText = 'Retry Scout';
+  } finally {
+    btnEnrichLead.disabled = false;
+  }
 }
 
 // --- Loading State Utility ---
@@ -722,21 +951,29 @@ function exportToExcel() {
   const dateStr = new Date().toISOString().split('T')[0];
   const baseName = `BidNinja_${sanitizedCity}_${dateStr}`;
 
-  const rows = list.map((c, idx) => ({
-    'ID': idx + 1,
-    'Business Name': c.name || '',
-    'Phone': c.phone || '',
-    'Rating': c.rating ? parseFloat(c.rating) : '',
-    'Reviews Count': parseInt(c.reviewCount) || 0,
-    'Physical Storefront': c.isExactCity ? 'Yes' : 'No',
-    'Address': c.address || '',
-    'City': c.city || currentCity,
-    'Category': c.category || 'Lawn Care',
-    'Website': c.website || '',
-    'Google Maps Link': c.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.name + ' ' + (c.address || ''))}`,
-    'Business Type': c.isFranchise ? 'Franchise' : 'Independent',
-    'Data Source': 'Google Maps (Puppeteer)'
-  }));
+  const rows = list.map((c, idx) => {
+    const intel = c.enrichment || {};
+    const directEmail = (intel.emails && intel.emails.length > 0) ? intel.emails.join('; ') : '';
+    return {
+      'ID': idx + 1,
+      'Business Name': c.name || '',
+      'Phone': c.phone || '',
+      'Direct Email': directEmail,
+      'Owner / Contact': intel.ownerName || '',
+      'Experience': intel.experience || '',
+      'Crew & Scale Clues': (intel.crewSignals && intel.crewSignals.length > 0) ? intel.crewSignals.join('; ') : '',
+      'Rating': c.rating ? parseFloat(c.rating) : '',
+      'Reviews Count': parseInt(c.reviewCount) || 0,
+      'Physical Storefront': c.isExactCity ? 'Yes' : 'No',
+      'Address': c.address || '',
+      'City': c.city || currentCity,
+      'Category': c.category || 'Lawn Care',
+      'Website': c.website || '',
+      'Google Maps Link': c.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.name + ' ' + (c.address || ''))}`,
+      'Business Type': c.isFranchise ? 'Franchise' : 'Independent',
+      'Data Source': 'Google Maps (Puppeteer)'
+    };
+  });
 
   try {
     if (typeof XLSX !== 'undefined') {
@@ -745,6 +982,10 @@ function exportToExcel() {
         { wch: 6 },
         { wch: 32 },
         { wch: 18 },
+        { wch: 28 },
+        { wch: 22 },
+        { wch: 20 },
+        { wch: 28 },
         { wch: 8 },
         { wch: 14 },
         { wch: 18 },

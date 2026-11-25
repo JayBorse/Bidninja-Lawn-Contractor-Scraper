@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const db = require('./services/db');
 const { scrapeGoogleMaps } = require('./services/puppeteerScraper');
+const { enrichContractorWebsite } = require('./services/siteEnricher');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -71,6 +72,34 @@ app.get('/api/search', async (req, res) => {
 
   } catch (err) {
     console.error('[API] Search error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// On-demand website intel enrichment endpoint for a single contractor
+app.post('/api/enrich', async (req, res) => {
+  try {
+    const { id, website, name, city } = req.body || {};
+    if (!website) {
+      return res.json({ success: false, error: 'No website URL provided for this contractor.' });
+    }
+
+    console.log(`[Enrich] Scouting website for "${name || 'Contractor'}": ${website}`);
+    const result = await enrichContractorWebsite(website, { name, city });
+
+    if (!result.success) {
+      return res.json(result);
+    }
+
+    const updatedLead = db.updateLeadEnrichment(id, result.enrichment, { website, name });
+
+    res.json({
+      success: true,
+      enrichment: result.enrichment,
+      contractor: updatedLead || null
+    });
+  } catch (err) {
+    console.error('[API] Enrich error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

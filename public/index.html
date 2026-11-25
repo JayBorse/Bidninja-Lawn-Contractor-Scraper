@@ -189,10 +189,10 @@
 
   <!-- CONTRACTOR DETAILS MODAL -->
   <div id="infoModal" class="fixed inset-0 z-50 bg-zinc-950/30 backdrop-blur-[2px] flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-xl border border-zinc-200 max-w-lg w-full shadow-xl overflow-hidden animate-in fade-in duration-100">
+    <div class="bg-white rounded-xl border border-zinc-200 max-w-xl w-full max-h-[90vh] flex flex-col shadow-xl overflow-hidden animate-in fade-in duration-100">
       
       <!-- Modal Header -->
-      <div class="px-6 py-5 border-b border-zinc-100 flex items-start justify-between">
+      <div class="px-6 py-5 border-b border-zinc-100 flex items-start justify-between shrink-0">
         <div class="space-y-1">
           <div class="flex items-center gap-2">
             <span id="detailRatingBadge" class="text-xs font-semibold text-zinc-800 flex items-center gap-1">
@@ -213,7 +213,7 @@
       </div>
 
       <!-- Modal Body -->
-      <div class="p-6 space-y-4 text-xs">
+      <div class="p-6 space-y-4 text-xs overflow-y-auto flex-1">
         
         <!-- Phone Number Field -->
         <div class="p-3.5 rounded-lg bg-zinc-50 border border-zinc-200/80 flex items-center justify-between">
@@ -228,6 +228,95 @@
           </button>
         </div>
 
+        <!-- Website & On-Demand Scout Button -->
+        <div class="p-3.5 rounded-lg bg-zinc-50 border border-zinc-200/80 flex items-center justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <span class="text-[10px] font-semibold tracking-wider uppercase text-zinc-400 block">Website</span>
+            <a id="detailWebsite" href="#" target="_blank" class="text-zinc-900 hover:underline text-xs font-medium break-all mt-0.5 block">
+              https://example.com
+            </a>
+          </div>
+          <button id="btnEnrichLead" type="button" class="px-3 py-1.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium transition-colors shadow-sm shrink-0 inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+            <span id="enrichBtnIcon">⚡</span>
+            <span id="enrichBtnText">Scout Website Intel</span>
+          </button>
+        </div>
+
+        <!-- On-Demand Website Intel Section -->
+        <div id="enrichSection" class="hidden space-y-3">
+          <!-- Loading State -->
+          <div id="enrichLoading" class="p-4 rounded-lg bg-emerald-50/50 border border-emerald-200/80 flex items-center gap-3 hidden">
+            <div class="w-4 h-4 border-2 border-emerald-200 border-t-emerald-700 rounded-full animate-spin shrink-0"></div>
+            <div>
+              <p class="font-medium text-emerald-950">Scouting contractor website...</p>
+              <p class="text-[11px] text-emerald-700">Scanning homepage, About, and Contact pages for emails, owner & crew info.</p>
+            </div>
+          </div>
+
+          <!-- Error / Notice State -->
+          <div id="enrichError" class="p-3.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] hidden">
+            Unable to extract website intel.
+          </div>
+
+          <!-- Enriched Intel Card -->
+          <div id="enrichResult" class="rounded-lg border border-emerald-200 bg-emerald-50/30 p-4 space-y-3 hidden">
+            <div class="flex items-center justify-between border-b border-emerald-200/60 pb-2">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span class="font-semibold text-zinc-900 text-xs">Pre-Call Website Intel</span>
+              </div>
+              <span id="enrichMeta" class="text-[10px] text-zinc-500 font-mono"></span>
+            </div>
+
+            <!-- Owner & Experience Grid -->
+            <div class="grid grid-cols-2 gap-2.5">
+              <div class="p-2.5 rounded-md bg-white border border-zinc-200/80">
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 block">Owner / Contact</span>
+                <span id="enrichOwner" class="font-medium text-zinc-900 mt-0.5 block">—</span>
+              </div>
+              <div class="p-2.5 rounded-md bg-white border border-zinc-200/80">
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 block">Experience</span>
+                <span id="enrichExperience" class="font-medium text-zinc-900 mt-0.5 block">—</span>
+              </div>
+            </div>
+
+            <!-- Direct Emails -->
+            <div class="p-2.5 rounded-md bg-white border border-zinc-200/80 flex items-center justify-between gap-2">
+              <div class="min-w-0">
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 block">Direct Email(s)</span>
+                <span id="enrichEmails" class="font-mono font-medium text-zinc-900 mt-0.5 block break-all">—</span>
+              </div>
+              <button id="btnCopyEmail" type="button" class="px-2.5 py-1 rounded bg-zinc-50 hover:bg-zinc-100 text-zinc-800 border border-zinc-200 text-[11px] font-medium shrink-0 hidden">
+                Copy
+              </button>
+            </div>
+
+            <!-- Crew / Scale Signals -->
+            <div id="enrichCrewBox" class="p-2.5 rounded-md bg-white border border-zinc-200/80 hidden">
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 block">Crew &amp; Scale Clues</span>
+              <div id="enrichCrewSignals" class="flex flex-wrap gap-1.5 mt-1.5"></div>
+            </div>
+
+            <!-- Pre-Call Opener Hook -->
+            <div class="p-3 rounded-md bg-zinc-900 text-zinc-100 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">Pre-Call Opener Hook</span>
+                <button id="btnCopyHook" type="button" class="text-[10px] px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors">
+                  Copy Script
+                </button>
+              </div>
+              <p id="enrichHook" class="text-[11px] leading-relaxed text-zinc-200"></p>
+            </div>
+
+            <!-- Site Summary & Socials -->
+            <div id="enrichSummaryBox" class="text-[11px] text-zinc-600 leading-relaxed hidden">
+              <span class="font-semibold text-zinc-700">About: </span>
+              <span id="enrichSummary"></span>
+            </div>
+            <div id="enrichSocials" class="flex flex-wrap gap-2 pt-0.5 hidden"></div>
+          </div>
+        </div>
+
         <!-- Google Maps Profile -->
         <div class="p-3.5 rounded-lg bg-zinc-50 border border-zinc-200/80 flex items-center justify-between">
           <div>
@@ -236,22 +325,6 @@
           </div>
           <a id="detailMapsLink" href="#" target="_blank" class="px-3 py-1.5 rounded-md bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-200 text-xs font-medium transition-colors shadow-sm inline-flex items-center gap-1">
             Open Map ↗
-          </a>
-        </div>
-
-        <!-- Data Source Tag -->
-        <div class="p-3.5 rounded-lg bg-zinc-50 border border-zinc-200/80">
-          <span class="text-[10px] font-semibold tracking-wider uppercase text-zinc-400 block">Data Source</span>
-          <span id="detailSource" class="text-zinc-800 mt-0.5 block font-medium">
-            Google Maps (Puppeteer Scraper)
-          </span>
-        </div>
-
-        <!-- Website -->
-        <div class="p-3.5 rounded-lg bg-zinc-50 border border-zinc-200/80">
-          <span class="text-[10px] font-semibold tracking-wider uppercase text-zinc-400 block">Website</span>
-          <a id="detailWebsite" href="#" target="_blank" class="text-zinc-900 hover:underline text-xs font-medium break-all mt-0.5 block">
-            https://example.com
           </a>
         </div>
 
@@ -272,10 +345,18 @@
           </div>
         </div>
 
+        <!-- Data Source Tag -->
+        <div class="p-3.5 rounded-lg bg-zinc-50 border border-zinc-200/80">
+          <span class="text-[10px] font-semibold tracking-wider uppercase text-zinc-400 block">Data Source</span>
+          <span id="detailSource" class="text-zinc-800 mt-0.5 block font-medium">
+            Google Maps (Puppeteer Scraper)
+          </span>
+        </div>
+
       </div>
 
       <!-- Modal Footer -->
-      <div class="px-6 py-3.5 border-t border-zinc-100 bg-zinc-50/50 flex justify-end">
+      <div class="px-6 py-3.5 border-t border-zinc-100 bg-zinc-50/50 flex justify-end shrink-0">
         <button id="btnModalClose2" class="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-xs font-medium transition-colors">
           Close
         </button>

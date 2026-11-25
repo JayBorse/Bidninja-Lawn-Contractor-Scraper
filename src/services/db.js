@@ -117,6 +117,9 @@ function deduplicateListings(list) {
         existing.isExactCity = true;
         existing.locationType = 'Physical Address';
       }
+      if (!existing.enrichment && item.enrichment) {
+        existing.enrichment = item.enrichment;
+      }
       existing.updatedAt = new Date().toISOString();
     } else {
       result.push(item);
@@ -191,6 +194,40 @@ function updateLeadStatus(id, status, notes = '') {
   return null;
 }
 
+/**
+ * Persists website enrichment intel onto a contractor record
+ */
+function updateLeadEnrichment(id, enrichment, fallback = {}) {
+  const leads = getLeads();
+  let lead = id ? leads.find(l => l.id === id) : null;
+
+  if (!lead && fallback.website) {
+    lead = leads.find(l => l.website && l.website.toLowerCase() === fallback.website.toLowerCase());
+  }
+  if (!lead && fallback.name) {
+    const normTarget = normalizeName(fallback.name);
+    lead = leads.find(l => normalizeName(l.name) === normTarget);
+  }
+
+  if (lead) {
+    lead.enrichment = enrichment;
+    if (enrichment.emails && enrichment.emails.length > 0) {
+      lead.email = enrichment.emails[0];
+    }
+    if (enrichment.ownerName) {
+      lead.ownerName = enrichment.ownerName;
+    }
+    if (enrichment.services && enrichment.services.length > 0) {
+      const existingServices = Array.isArray(lead.services) ? lead.services : [];
+      lead.services = Array.from(new Set([...existingServices, ...enrichment.services]));
+    }
+    lead.updatedAt = new Date().toISOString();
+    saveLeads(leads);
+    return lead;
+  }
+  return null;
+}
+
 function getSettings() {
   try {
     if (!fs.existsSync(SETTINGS_FILE)) {
@@ -224,6 +261,7 @@ module.exports = {
   saveLeads,
   upsertLeads,
   updateLeadStatus,
+  updateLeadEnrichment,
   getSettings,
   saveSettings,
   deduplicateListings,
