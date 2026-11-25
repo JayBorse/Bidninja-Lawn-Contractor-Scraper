@@ -369,14 +369,6 @@ function highlightMatch(text, query) {
   return `${before}<span class="text-zinc-950 font-bold underline underline-offset-2">${match}</span>${after}`;
 }
 
-// --- Search / Scrape Function (Strict Segregation) ---
-async function searchContractors(city, forceRefresh = false) {
-  if (!city || !city.trim()) {
-    showInitialState();
-    return;
-  }
-
-  city = city.trim();
 // --- Client-Side Robust Deduplication ---
 function deduplicateContractors(list) {
   if (!Array.isArray(list)) return [];
@@ -430,7 +422,16 @@ function deduplicateContractors(list) {
   return result;
 }
 
+// --- Search / Scrape Function ---
+async function searchContractors(city, forceRefresh = false) {
+  if (!city || !city.trim()) {
+    showInitialState();
+    return;
+  }
+
+  city = city.trim();
   currentCityLabel.innerText = city;
+  resultsCount.innerText = 'Searching Google Maps in real-time...';
 
   // Reveal UI sections
   if (initialState) initialState.classList.add('hidden');
